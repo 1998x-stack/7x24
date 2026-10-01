@@ -1,1 +1,26 @@
-playwright>=1.20.0
+# Core dependencies
+requests>=2.31.0
+openai>=1.0.0
+loguru>=0.7.0
+python-dotenv>=1.0.0
+
+# LangChain ecosystem
+langchain-core>=0.1.0
+langchain-openai>=0.1.0
+langgraph>=0.2.0
+
+# Database
+neo4j-driver>=5.0.0
+
+# Type checking and utilities
+pydantic>=2.0.0
+typing-extensions>=4.0.0
+
+# For web scraping if needed
+playwright>=1.40.0
+beautifulsoup4>=4.12.0
+
+# Testing
+pytest>=7.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.0.0
