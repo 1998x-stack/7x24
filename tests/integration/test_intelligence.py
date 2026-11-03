@@ -3,6 +3,7 @@
 import hashlib
 import sqlite3
 from datetime import UTC, datetime
+from importlib import resources
 from pathlib import Path
 
 import pytest
@@ -76,10 +77,22 @@ def spec(model: str = "test-model") -> AnalysisSpec:
 
 def test_schema_v2_upgrade_preserves_job_queue(tmp_path: Path) -> None:
     db = tmp_path / "data.db"
+    migrations = resources.files("news24.storage.migrations")
+    v1 = migrations.joinpath("0001_initial.sql").read_text(encoding="utf-8")
+    v2 = migrations.joinpath("0002_jobs.sql").read_text(encoding="utf-8")
+    with sqlite3.connect(db) as connection:
+        connection.executescript(v1 + "\n" + v2 + "\nPRAGMA user_version=2;")
+        connection.execute(
+            """INSERT INTO job_queue
+               (job_key,kind,payload_json,state,max_attempts,available_at,
+                created_at,updated_at)
+               VALUES ('original-job','report','{}','QUEUED',3,?,?,?)""",
+            (NOW.isoformat(), NOW.isoformat(), NOW.isoformat()),
+        )
+        connection.commit()
     with SQLiteNewsStore(db) as store:
-        store.migrate()
-        JobStore(store).enqueue("original-job", "report", {}, now=NOW)
-        assert store.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert store.conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert store.migrate() == 3
         assert store.migrate() == 3
         assert JobStore(store).get("original-job") is not None
         assert store.conn.execute(
@@ -119,6 +132,31 @@ async def test_absent_quote_rejected_and_not_neutral(tmp_path: Path) -> None:
             "SELECT sentiment FROM analysis_results"
         ).fetchone()[0]
         assert recorded is None
+
+
+@pytest.mark.asyncio
+async def test_partial_results_are_not_claimed_as_verified(tmp_path: Path) -> None:
+    class MixedProvider(FakeProvider):
+        async def analyze(
+            self, title: str | None, content: str, model_spec: AnalysisSpec
+        ) -> ModelReply:
+            return ModelReply(data=AnalysisCandidate.model_validate({
+                "sentiment": "neutral",
+                "claims": [
+                    {"statement": "原文存在第一条内容", "quote": QUOTE},
+                    {"statement": "原文说了不存在的事情", "quote": "原文中不存在这段报道"},
+                ],
+            }))
+
+    with SQLiteNewsStore(tmp_path / "data.db") as store:
+        add(store, "run", [article(1, "公告：" + QUOTE)])
+        result = await analyze_article(store, "sina_7x24:1", spec(), MixedProvider())
+        assert result["status"] == "PARTIAL" and result["text_matched"] == 1
+        evidence = evidence_for(store, result["analysis_key"])
+        assert [row["verdict"] for row in evidence] == [
+            "TEXT_MATCH_ONLY", "NOT_FOUND",
+        ]
+        assert len(event_candidates(store)) == 1
 
 
 @pytest.mark.asyncio
