@@ -165,7 +165,7 @@ def test_claim_audit_append_only_conflict_and_revision_fence(tmp_path: Path) -> 
             review_claim(
                 store,analysis_key=key,claim_index=0,
                 expected_version=2,expected_source_revision=rev,
-                decision="NEEDS_INVESTIGATION",reason="不应批准旧内容",
+                decision="NEEDS_INVESTIGATION",reason="不应该批准已经修改的旧新闻内容",
                 reviewer="tester",
             )
 

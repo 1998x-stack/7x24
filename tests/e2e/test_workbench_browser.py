@@ -98,7 +98,7 @@ def test_browser_news_evidence_review_and_mobile(tmp_path: Path) -> None:
             page.get_by_text("仅候选事件").wait_for()
 
             page.locator('[data-view="jobs"]').click()
-            page.get_by_text("任务监控").wait_for()
+            page.get_by_role("heading",name="任务监控").wait_for()
             page.get_by_text("最近任务").wait_for()
 
             page.set_viewport_size({"width":390,"height":844})
