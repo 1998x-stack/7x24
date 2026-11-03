@@ -5,7 +5,6 @@ and leases so even accidental overlapping runners do not claim the same job.
 """
 
 import json
-import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
