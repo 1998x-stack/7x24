@@ -19,7 +19,7 @@ from news24 import __version__
 from news24.core.errors import News24Error
 from news24.core.models import NewsArticle
 from news24.ingestion.service import run_ingestion
-from news24.intelligence.service import analysis_history, evidence_for, event_candidates
+from news24.intelligence.service import analysis_history, event_candidates, evidence_for
 from news24.jobs.scheduler import ScheduleStore
 from news24.jobs.store import JobStore
 from news24.jobs.worker import JobWorker

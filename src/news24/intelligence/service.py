@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from news24.core.models import NewsArticle
 from news24.intelligence.models import AnalysisSpec
-from news24.intelligence.provider import AnalysisProvider, SYSTEM_PROMPT
+from news24.intelligence.provider import SYSTEM_PROMPT, AnalysisProvider
 from news24.storage.database import SQLiteNewsStore
 
 _PROMPT_SHA = hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()
