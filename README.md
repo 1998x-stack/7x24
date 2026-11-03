@@ -1,64 +1,103 @@
-# News24 — 7×24 新闻采集、证据及候选事件研究系统
+# News24 — 7×24 新闻采集与证据研究工作台
 
 [![CI](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml/badge.svg)](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml)
 
-Version **0.5.0** introduces optional model-based news analysis over the V0.4 durable task runtime. It is an experimental data/research system, **not a verified source of financial market data, trading signals or factual validation**.
+**V1.0 consolidated core:** a local research workbench over durable Sina 7×24 news snapshots, model candidates, exact textual provenance and immutable reviewer decisions. It bundles the previously unmerged V0.4 and V0.5 functionality into a single PR to `main`.
 
-## Architecture and scope
+This is a **research prototype**, not a production-verified market-data feed, automated fact-checker or trading product.
 
-- V0.2: packaged CLI + offline source contract fixtures.
-- V0.3: SQLite/WAL, versioned raw source snapshots, idempotent ingest and checkpoints.
-- V0.4: durable job queue, leases, retries, source probes and database-window reports.
-- **V0.5:** explicit model adapter, versioned structured outputs, exact source evidence spans, candidate event grouping and offline golden tests.
-- V0.6 future: interactive API and Web UI, human review and independent event verification.
+## What's implemented
 
-## Install and upgrade
+| Layer | Capability |
+|---|---|
+| Data capture (V0.3) | SQLite WAL, raw source page snapshots, article revisions, source checkpoints |
+| Jobs (V0.4) | Durable queue, atomic claim, retry, lease recovery, schedules, source probes |
+| Intelligence (V0.5) | Opt-in OpenAI Responses adapter, strict analysis models, exact source evidence spans, conservative event candidates |
+| Local Workbench (V1.0) | Responsive browser UI, news search, article text with highlighted evidence, analysis history, candidate events, job status and evaluation records |
+| Review audit (V1.0) | Token-protected claim/event decisions, immutable append-only reviews, source revision fencing, version-based conflict rejection |
+| Quality gate (V1.0) | Source quotation golden corpus evaluation, deterministic metrics, readiness report, HTTP and Chromium E2E tests |
+
+## Local quick start
+
+Requires Python 3.11+ and SQLite FTS5 trigram support.
 
 ```bash
-python3.11 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
 news24 doctor --json
-news24 db migrate  # upgrades schema v1/v2 to v3; make a consistent backup first
-make lint typecheck test smoke
+
+# Back up an existing SQLite database safely before migration
+news24 db migrate --db data/news24.sqlite3
+news24 audit --db data/news24.sqlite3
 ```
 
-V0.5 migration adds analysis/evidence/cluster tables; historical news, source checkpoints, jobs, and reports are retained. Older News24 binaries will intentionally reject the upgraded schema.
-
-## AI analysis is **opt-in**
-
-No model calls happen on ingest, search, report or source probe. The analyzer requires explicit queueing, explicit model configuration and an `OPENAI_API_KEY` for the OpenAI Responses provider. Model availability/price are provider-specific and must be checked in the target account.
+**Start the web interface (loopback ONLY):**
 
 ```bash
-export OPENAI_API_KEY=...
-# choose a Responses-compatible model made available to your API account
+# read-only interface when NEWS24_REVIEW_TOKEN is not set
+news24 web serve --db data/news24.sqlite3 --port 8765
+# open http://127.0.0.1:8765/
+```
+
+To enable human reviews, set a long, random secret in the **terminal environment**, not in the repository or a public URL. The web interface accepts it only through the password field, keeps it in memory while that tab is open, and does not write it to browser storage:
+
+```bash
+export NEWS24_REVIEW_TOKEN='replace-with-a-long-random-operator-secret'
+export NEWS24_REVIEWER='local-operator'
+news24 web serve --db data/news24.sqlite3 --port 8765
+```
+
+The server deliberately **rejects public binds** (e.g. `0.0.0.0`). It does not implement a public auth system or HTTPS. Only use on a trusted workstation; do not expose it through a public reverse proxy.
+
+## News collection, task runtime and AI
+
+```bash
+news24 source-probe
+news24 ingest --category all --max-pages 50
+news24 jobs install --collect-every 300 --probe-every 21600 \
+  --report-at 08:00 --timezone Asia/Shanghai
+news24 jobs run --loop --poll-seconds 5
+
+# AI is strictly opt-in and requires configured API access and a model ID
 news24 intelligence enqueue --uid sina_7x24:4700001 --model YOUR_MODEL_ID
 news24 jobs run
 news24 intelligence history --uid sina_7x24:4700001
-news24 intelligence events --day 2026-11-02
+news24 intelligence events
 ```
 
-To inspect individual evidence spans, read an `analysis_key` from `history`:
+V0.5 analysis classifies source wording and extracts **candidate** claims. The exact source quote checker can return TEXT_MATCH_ONLY, NOT_FOUND, or AMBIGUOUS. A quote match proves an occurrence in the stored text, **not** that the interpretation or real-world assertion is true. AI results never overwrite the original news or human reviews.
+
+## Independent local evaluation
 
 ```bash
-news24 intelligence evidence --key YOUR_ANALYSIS_KEY
+news24 evaluate evidence --dataset tests/fixtures/intelligence/evidence_gold.json
+news24 audit
+python -m pytest -q tests/unit tests/contract tests/integration tests/test_system.py
 ```
 
-The worker can also read `NEWS24_ANALYSIS_MODEL` for directly enqueued generic analyze jobs. Unlike the legacy analyzer, a missing credential, malformed response or unsupported source quote **does not turn into a false neutral classification**.
+The quality gate is explicitly limited to **literal quote-match correctness**. A clean result does not establish source completeness, model accuracy, or independent-source corroboration. Runtime probe freshness is only the last known source status.
 
-Only **verbatim unique substrings** of the stored normalized source text are labeled `TEXT_MATCH_ONLY`, with exact Python character offsets. Absent and ambiguous quotes remain `NOT_FOUND` or `AMBIGUOUS`. A perfect quote match does **not** demonstrate that the claimed interpretation is logically true. Model output and token usage are versioned with provider, model, prompt version/hash, source revision and input hash.
-
-Candidate events are grouped conservatively by *identical sufficiently specific quotations within the same Shanghai-local calendar day*. They are named **CANDIDATE** rather than verified events. They are filtered against the **current** source revision so an old quote does not survive an upstream correction. No fuzzy semantic clustering or cross-source verification is claimed.
-
-## Reliability and tests
+For a real browser test, install Playwright, install its Chromium browser, then run:
 
 ```bash
-make test
-python -m pytest -q tests/contract/test_evidence_gold.py
-news24 jobs status
-news24 health
+python -m pip install -e '.[dev,browser]'
+python -m playwright install chromium
+python -m pytest -q tests/e2e
 ```
 
-Offline CI uses fake model providers; it never consumes API tokens or makes a real model call. Check the live provider contract separately in an authorized environment. A source article can contain prompt-injection text: it must be treated only as untrusted input, never instructions.
+The Chromium test uses an offline local HTTP server and fake model responses, never the live Sina feed or paid AI API.
 
-See [ADR 0004](docs/adr/0004-model-evidence.md), [V0.5 runbook](docs/runbooks/v0.5.md) and [roadmap](docs/architecture/roadmap.md).
+## Database and backwards compatibility
+
+Schema migrations are additive through `user_version=4`. V1.0 retains the V0.3 article, raw snapshots and checkpoint tables, V0.4 jobs and reports, and V0.5 analysis/event history. It adds immutable human review logs and evaluation records. Older binaries deliberately refuse databases with newer schema. Backup first; rollback means restoring the previous consistent backup, not editing `PRAGMA user_version`.
+
+## Operational boundaries
+
+- Sina's unofficial endpoint is not independently verified for current pagination and access. `source-probe` is a one-page check, **not** proof of 24-hour coverage.
+- Model calls, billing and privacy require separate account-specific validation; no production budget enforcement or independent fact verification is claimed.
+- The Workbench is local only, without multi-tenant permissions or external accessibility audit.
+- Initial long-history backfill remains bounded in memory by page limits. Event clustering uses exact sufficiently long quotes, not independent semantic equivalence.
+- No trading signals or investment recommendations.
+
+Documentation: [V1.0 runbook](docs/runbooks/v1.0.md), [API contract](docs/architecture/workbench-api.md), [security/review ADR](docs/adr/0005-local-review-workbench.md), [roadmap](docs/architecture/roadmap.md).

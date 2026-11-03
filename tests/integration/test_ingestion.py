@@ -78,8 +78,8 @@ async def ingest(
 
 def test_migration_idempotent_and_wal(tmp_path: Path) -> None:
     with SQLiteNewsStore(tmp_path / "news.sqlite3") as store:
-        assert store.migrate() == 3
-        assert store.migrate() == 3
+        assert store.migrate() == 4
+        assert store.migrate() == 4
         assert store.conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert store.statistics()["news"] == 0
         assert store.conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1

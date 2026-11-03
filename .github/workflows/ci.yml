@@ -1,4 +1,4 @@
-name: News24 Evidence Intelligence CI
+name: News24 Consolidated Core CI
 
 on:
   push:
@@ -21,21 +21,37 @@ jobs:
         run: python -m pip install -e '.[dev]'
       - name: Syntax check
         run: python -m compileall -q src/news24
+      - name: JS static syntax check
+        run: node --check src/news24/web/app.js
       - name: Ruff
         run: python -m ruff check src/news24 tests/unit tests/contract tests/integration
       - name: Mypy
         run: python -m mypy src/news24
-      - name: Offline unit, contract, integration and legacy tests
+      - name: Unit, contract, integration and legacy tests
         run: python -m pytest -q tests/unit tests/contract tests/integration tests/test_system.py
       - name: Offline CLI smoke
         run: |
           python -m news24 doctor --json
           python -m news24 test-fixtures tests/fixtures/sina/feed_success.json
           python -m news24 db migrate --db /tmp/news24-ci.sqlite3
-          python -m news24 db stats --db /tmp/news24-ci.sqlite3
           python -m news24 jobs status --db /tmp/news24-ci.sqlite3
-          python -m news24 report daily --date 2026-11-02 --db /tmp/news24-ci.sqlite3
           python -m news24 intelligence events --db /tmp/news24-ci.sqlite3
+          python -m news24 evaluate evidence --db /tmp/news24-ci.sqlite3 --dataset tests/fixtures/intelligence/evidence_gold.json
+          python -m news24 audit --db /tmp/news24-ci.sqlite3
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install browser test tools
+        run: python -m pip install -e '.[dev,browser]'
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Real Chromium local workbench E2E
+        run: python -m pytest -q tests/e2e
 
   docker:
     runs-on: ubuntu-latest
@@ -49,5 +65,5 @@ jobs:
           docker run --rm news24:ci doctor --json
           docker run --rm news24:ci test-fixtures /app/tests/fixtures/sina/feed_success.json
           docker run --rm -v news24-ci:/data news24:ci db migrate
-          docker run --rm -v news24-ci:/data news24:ci db stats
           docker run --rm -v news24-ci:/data news24:ci jobs status
+          docker run --rm -v news24-ci:/data news24:ci audit

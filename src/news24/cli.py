@@ -20,6 +20,7 @@ from news24.core.errors import News24Error
 from news24.core.models import NewsArticle
 from news24.ingestion.service import run_ingestion
 from news24.intelligence.service import analysis_history, event_candidates, evidence_for
+from news24.evaluation.quality import evaluate_evidence, readiness
 from news24.jobs.scheduler import ScheduleStore
 from news24.jobs.store import JobStore
 from news24.jobs.worker import JobWorker
@@ -29,6 +30,7 @@ from news24.sources.sina.async_client import SinaFeedClient
 from news24.sources.sina.client import fetch_latest
 from news24.sources.sina.parser import parse_feed, parse_payload
 from news24.storage.database import SQLiteNewsStore
+from news24.web.server import serve_from_env
 
 
 def _print(value: object) -> None:
@@ -304,6 +306,24 @@ def _intelligence(args: argparse.Namespace) -> int:
     return 0
 
 
+def _web_action(args: argparse.Namespace) -> int:
+    serve_from_env(args.db, args.port)
+    return 0
+
+
+def _evaluation(args: argparse.Namespace) -> int:
+    with SQLiteNewsStore(args.db) as store:
+        result = evaluate_evidence(store, args.dataset)
+        _print(result)
+        return 0 if result["ok"] else 3
+
+
+def _readiness(args: argparse.Namespace) -> int:
+    with SQLiteNewsStore(args.db) as store:
+        _print(readiness(store))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="news24")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -418,6 +438,23 @@ def build_parser() -> argparse.ArgumentParser:
             command.add_argument("--day")
             command.add_argument("--limit", type=int, default=50)
         command.set_defaults(func=_intelligence)
+    web = subparsers.add_parser("web", help="localhost-only provenance workbench")
+    web_sub = web.add_subparsers(dest="web_action", required=True)
+    server_cmd = web_sub.add_parser("serve")
+    server_cmd.add_argument("--db", default=runtime_db)
+    server_cmd.add_argument("--port", type=int, default=8765)
+    server_cmd.set_defaults(func=_web_action)
+
+    evaluator = subparsers.add_parser("evaluate", help="offline independent quality gate")
+    eval_sub = evaluator.add_subparsers(dest="evaluate_action", required=True)
+    evidence_cmd = eval_sub.add_parser("evidence")
+    evidence_cmd.add_argument("--dataset", required=True)
+    evidence_cmd.add_argument("--db", default=runtime_db)
+    evidence_cmd.set_defaults(func=_evaluation)
+
+    audit = subparsers.add_parser("audit", help="local production-readiness gaps")
+    audit.add_argument("--db", default=runtime_db)
+    audit.set_defaults(func=_readiness)
     return parser
 
 

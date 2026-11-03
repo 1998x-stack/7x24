@@ -92,8 +92,8 @@ def test_schema_v2_upgrade_preserves_job_queue(tmp_path: Path) -> None:
         connection.commit()
     with SQLiteNewsStore(db) as store:
         assert store.conn.execute("PRAGMA user_version").fetchone()[0] == 2
-        assert store.migrate() == 3
-        assert store.migrate() == 3
+        assert store.migrate() == 4
+        assert store.migrate() == 4
         assert JobStore(store).get("original-job") is not None
         assert store.conn.execute(
             "SELECT name FROM sqlite_master WHERE name='analysis_results'"

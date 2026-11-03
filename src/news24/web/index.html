@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>News24 · 研究工作台</title>
+  <link rel="stylesheet" href="/app.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" aria-label="主导航">
+      <div class="logo">N<span>24</span></div>
+      <div class="rail-label">研究控制台</div>
+      <nav id="nav" aria-label="工作台视图">
+        <button type="button" data-view="news" class="active">资讯检索</button>
+        <button type="button" data-view="events">候选事件</button>
+        <button type="button" data-view="jobs">任务监控</button>
+        <button type="button" data-view="quality">质量评测</button>
+      </nav>
+      <div class="rail-note">LOCAL WORKBENCH<br>来源证明 ≠ 事实核实<br>离线数据 ≠ 完整市场</div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div><div class="eyebrow">PROVENANCE INTELLIGENCE</div>
+          <h1 id="heading">资讯检索</h1>
+          <p id="subtitle">从新闻源记录逐步追溯至证据与审核结论。</p>
+        </div>
+        <div class="auth">
+          <label for="review-token">审核令牌（仅当前页面内存）</label>
+          <input id="review-token" type="password" autocomplete="off"
+                 placeholder="仅审核操作需要，勿保存在浏览器">
+        </div>
+      </header>
+      <div id="notice" role="status" aria-live="polite" class="notice" hidden></div>
+      <main id="main" tabindex="-1" aria-live="off"></main>
+      <footer>
+        <span>News24 · 仅限本地研究使用</span>
+        <span>AI 引用匹配不代表事实通过核验 · 不构成投资建议</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

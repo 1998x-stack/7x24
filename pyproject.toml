@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news24"
-version = "0.5.0"
-description = "Sina 7x24 news collector — evidence-grounded intelligence and event candidates"
+version = "1.0.0"
+description = "Sina 7x24 research workbench with provenance and review audit"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -38,6 +38,7 @@ include = ["news24*"]
 
 [tool.setuptools.package-data]
 "news24.storage.migrations" = ["*.sql"]
+"news24.web" = ["*.html", "*.css", "*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
