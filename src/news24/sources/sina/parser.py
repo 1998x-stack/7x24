@@ -132,7 +132,7 @@ def parse_feed(payload: dict[str, Any], fetched_at: datetime) -> list[NewsArticl
             tags=tag_names,
             related_symbols=symbols,
             content_hash=hashlib.sha256(content.encode("utf-8")).hexdigest(),
-            is_deleted=bool(raw.get("is_delete", False)),
+            is_deleted=str(raw.get("is_delete", "0")).lower() in ("1", "true"),
             is_repeated=str(raw.get("is_repeat", "0")) == "1",
             raw=raw,
         ))

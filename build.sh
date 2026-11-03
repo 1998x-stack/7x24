@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deterministic setup of V0.2 engineering tools, without rewriting tracked files.
+# V0.2 engineering setup and test gate; does not rewrite tracked files.
 set -euo pipefail
 cd "$(dirname "$0")"
 PYTHON_BIN="${PYTHON_BIN:-python3}"

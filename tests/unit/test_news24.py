@@ -37,6 +37,16 @@ def test_article_fields_survive_parsing() -> None:
     assert len(item.content_hash) == 64
 
 
+def test_deleted_flag_does_not_confuse_string_zero() -> None:
+    payload = parse_payload(FIXTURE.read_text(encoding="utf-8"))
+    payload["result"]["data"]["feed"]["list"][0]["is_delete"] = "0"
+    kept = parse_feed(payload, datetime(2026, 3, 3, tzinfo=UTC))
+    assert kept[0].is_deleted is False
+    payload["result"]["data"]["feed"]["list"][0]["is_delete"] = "1"
+    deleted = parse_feed(payload, datetime(2026, 3, 3, tzinfo=UTC))
+    assert deleted[0].is_deleted is True
+
+
 def test_invalid_publish_time_never_becomes_now() -> None:
     assert _articles()[1].published_at is None
 
