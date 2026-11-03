@@ -21,7 +21,7 @@ def fetch_latest(
 ) -> list[NewsArticle]:
     if not 1 <= limit <= 50:
         raise ValueError("V0.2 fetch supports 1..50 items (pagination arrives in V0.3)")
-    params = {
+    params: dict[str, str | int] = {
         "zhibo_id": 152, "tag_id": category_id(category),
         "page": 1, "page_size": limit, "pagesize": limit,
         "dire": "f", "dpc": 1, "type": 0,
