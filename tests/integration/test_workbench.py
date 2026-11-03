@@ -98,7 +98,7 @@ def test_upgrade_v3_to_v4_preserves_news_and_analysis(tmp_path: Path) -> None:
     path = tmp_path / "db.sqlite3"
     from importlib import resources
 
-    package = resources.files("news24.storage.migrations")
+    package = resources.files("news24.infrastructure.sqlite.migrations")
     sql = "\n".join(
         package.joinpath(f"000{i}_{name}.sql").read_text(encoding="utf-8")
         for i,name in (

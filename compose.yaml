@@ -2,7 +2,7 @@ services:
   news24:
     build:
       context: .
-    image: news24:0.3
+    image: news24:1.1
     init: true
     restart: "no"
     environment:

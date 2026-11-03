@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security reporting
+    url: https://github.com/1998x-stack/7x24/security/advisories
+    about: Report sensitive vulnerabilities privately when the repository enables that feature.

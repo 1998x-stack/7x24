@@ -49,7 +49,7 @@ def seed(store: SQLiteNewsStore, records: list[NewsArticle], key: str = "seed") 
 def test_upgrade_v1_to_v3_without_data_loss(tmp_path: Path) -> None:
     path = tmp_path / "old.sqlite3"
     schema = (
-        resources.files("news24.storage.migrations")
+        resources.files("news24.infrastructure.sqlite.migrations")
         .joinpath("0001_initial.sql")
         .read_text(encoding="utf-8")
     )
