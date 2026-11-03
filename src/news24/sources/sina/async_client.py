@@ -23,13 +23,19 @@ class SinaFeedClient:
         url: str = FEED_URL,
         delay: float = 0.5,
         retries: int = 2,
+        zhibo_id: int = 152,
+        feed_type: int = 0,
     ) -> None:
         if delay < 0 or retries < 0 or retries > 5:
             raise ValueError("delay must be nonnegative, retries must be 0..5")
         self.client = client
         self.url = url
         self.delay = delay
+        if zhibo_id <= 0 or feed_type < 0:
+            raise ValueError("invalid upstream channel or feed type")
         self.retries = retries
+        self.zhibo_id = zhibo_id
+        self.feed_type = feed_type
 
     async def fetch_page(
         self, category: str, page: int, page_size: int = 50
@@ -37,9 +43,9 @@ class SinaFeedClient:
         if page < 1 or not 1 <= page_size <= 50:
             raise ValueError("page must be >=1, page_size must be 1..50")
         params: dict[str, str | int] = {
-            "zhibo_id": 152, "tag_id": category_id(category),
+            "zhibo_id": self.zhibo_id, "tag_id": category_id(category),
             "page": page, "page_size": page_size, "pagesize": page_size,
-            "dire": "f", "dpc": 1, "type": 0,
+            "dire": "f", "dpc": 1, "type": self.feed_type,
         }
         payload: dict[str, Any] | None = None
         for attempt in range(self.retries + 1):

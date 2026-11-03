@@ -13,9 +13,9 @@ Packaging, CLI, response contract, offline fixtures, explicit source errors, Doc
 - Golden regression comparing original sample fields to normalized records.
 - Live Sina access checks, respect source usage and rate limits.
 
-## V0.4 Jobs and resilience
+## V0.4 Jobs and resilience (this PR)
 
-Independent collection, analysis, reporting; persistent job queue; recovery, retry and health metrics. Reporting must query actual stored time windows.
+A SQLite durable job queue, atomic claims with leases, limited retries, interval/daily schedules, independent collection and report handlers, direct source contract probes, and truthful database-window reporting. The analyze handler remains an explicit V0.5 integration point, not a fake success path. Live upstream contract and report source-completeness verification remain open quality gates.
 
 ## V0.5 Intelligence
 

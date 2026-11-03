@@ -375,7 +375,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--limit must be positive")
     try:
         return int(args.func(args))
-    except (OSError, ValueError, RuntimeError, sqlite3.Error, News24Error, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, RuntimeError, sqlite3.Error, News24Error) as exc:
         print(f"news24: {exc}", file=sys.stderr)
         return 1
 

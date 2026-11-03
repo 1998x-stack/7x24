@@ -5,7 +5,7 @@ intervals are not replayed in a storm when a process comes back online.
 """
 
 import json
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 

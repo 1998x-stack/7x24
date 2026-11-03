@@ -19,6 +19,8 @@ smoke:
 	$(PYTHON) -m news24 test-fixtures tests/fixtures/sina/feed_success.json
 	$(PYTHON) -m news24 db migrate --db /tmp/news24-smoke.sqlite3
 	$(PYTHON) -m news24 db stats --db /tmp/news24-smoke.sqlite3
+	$(PYTHON) -m news24 jobs status --db /tmp/news24-smoke.sqlite3
+	$(PYTHON) -m news24 report daily --date 2026-11-02 --db /tmp/news24-smoke.sqlite3
 
 build:
 	$(PYTHON) -m pip wheel --no-deps --wheel-dir dist .
