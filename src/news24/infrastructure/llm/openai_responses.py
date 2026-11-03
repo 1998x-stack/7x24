@@ -2,8 +2,8 @@
 
 import json
 import os
-from news24.domain.analysis import AnalysisCandidate, AnalysisSpec, ModelReply
 from news24.application.intelligence.prompt import OUTPUT_SCHEMA, SYSTEM_PROMPT
+from news24.domain.analysis import AnalysisCandidate, AnalysisSpec, ModelReply
 
 
 class OpenAIResponsesProvider:

@@ -10,16 +10,16 @@ from uuid import uuid4
 import httpx
 
 from news24.application.ingestion.service import run_ingestion
-from news24.domain.analysis import AnalysisSpec
 from news24.application.intelligence.ports import AnalysisProvider
-from news24.infrastructure.llm.openai_responses import OpenAIResponsesProvider
 from news24.application.intelligence.service import analyze_article
 from news24.application.jobs.scheduler import ScheduleStore
-from news24.infrastructure.sqlite.job_store import JobStore
 from news24.application.observability.health import probe_sina
 from news24.application.reporting.service import generate_daily_report
+from news24.domain.analysis import AnalysisSpec
+from news24.infrastructure.llm.openai_responses import OpenAIResponsesProvider
 from news24.infrastructure.sina.async_client import SinaFeedClient
 from news24.infrastructure.sqlite.database import SQLiteNewsStore
+from news24.infrastructure.sqlite.job_store import JobStore
 
 JobHandler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 

@@ -6,9 +6,10 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from news24.domain.news import NewsArticle
+from news24.application.intelligence.ports import AnalysisProvider
+from news24.application.intelligence.prompt import SYSTEM_PROMPT
 from news24.domain.analysis import AnalysisSpec
-from news24.infrastructure.llm.openai_responses import SYSTEM_PROMPT, AnalysisProvider
+from news24.domain.news import NewsArticle
 from news24.infrastructure.sqlite.database import SQLiteNewsStore
 
 _PROMPT_SHA = hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()

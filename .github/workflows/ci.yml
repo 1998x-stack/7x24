@@ -25,7 +25,7 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q src/news24
       - name: JS static syntax check
-        run: node --check src/news24/web/app.js
+        run: node --check src/news24/interfaces/web/app.js
       - name: Ruff
         run: python -m ruff check src/news24 tests/unit tests/contract tests/integration tests/architecture
       - name: Mypy
