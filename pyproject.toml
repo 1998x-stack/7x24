@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news24"
-version = "0.2.0"
-description = "Sina 7x24 news collector — engineering foundation"
+version = "0.3.0"
+description = "Sina 7x24 news collector — durable ingestion and replay-safe storage"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -36,6 +36,9 @@ news24 = "news24.cli:main"
 where = ["src"]
 include = ["news24*"]
 
+[tool.setuptools.package-data]
+"news24.storage.migrations" = ["*.sql"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
@@ -44,7 +47,7 @@ asyncio_mode = "auto"
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-include = ["src/news24/**/*.py", "tests/unit/test_news24.py", "tests/contract/test_sina_feed.py"]
+include = ["src/news24/**/*.py", "tests/unit/**/*.py", "tests/contract/**/*.py", "tests/integration/**/*.py"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "B", "UP"]

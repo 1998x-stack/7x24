@@ -1,6 +1,7 @@
 """Stable command line entrypoint: explicit exit codes and machine-readable results."""
 
 import argparse
+import asyncio
 import json
 import os
 import sqlite3
@@ -11,9 +12,14 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
+
 from news24 import __version__
 from news24.core.errors import News24Error
 from news24.core.models import NewsArticle
+from news24.ingestion.service import run_ingestion
+from news24.sources.sina.async_client import SinaFeedClient
+from news24.storage.database import SQLiteNewsStore
 from news24.sources.sina.client import fetch_latest
 from news24.sources.sina.parser import parse_feed, parse_payload
 
@@ -114,6 +120,61 @@ def _test_fixtures(args: argparse.Namespace) -> int:
     return 0
 
 
+
+
+def _database(args: argparse.Namespace) -> int:
+    with SQLiteNewsStore(args.db) as store:
+        version = store.migrate()
+        if args.db_action == "migrate":
+            _print({"ok": True, "schema_version": version, "db": args.db})
+        elif args.db_action == "stats":
+            _print({"ok": True, "schema_version": version, **store.statistics()})
+        elif args.db_action == "recent":
+            _print({"ok": True, "items": [
+                a.model_dump(mode="json") for a in store.recent(args.limit)
+            ]})
+        elif args.db_action == "search":
+            _print({"ok": True, "items": [
+                a.model_dump(mode="json") for a in store.search(args.query, args.limit)
+            ]})
+        elif args.db_action == "revisions":
+            _print({"ok": True, "items": store.revisions(args.uid)})
+        elif args.db_action == "recover":
+            _print({"ok": True, "recovered": store.recover_interrupted()})
+    return 0
+
+
+def _date(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.utcoffset() is None:
+        raise ValueError("date range must use explicit timezone offset, e.g. +08:00")
+    return parsed
+
+
+async def _async_ingest(args: argparse.Namespace) -> dict[str, object]:
+    async with httpx.AsyncClient(
+        timeout=15.0,
+        follow_redirects=False,
+        headers={"Referer": "https://finance.sina.com.cn/7x24/"},
+    ) as client:
+        source = SinaFeedClient(client, delay=args.delay)
+        with SQLiteNewsStore(args.db) as store:
+            return await run_ingestion(
+                store, source, category=args.category,
+                max_pages=args.max_pages, page_size=args.page_size,
+                start=_date(getattr(args, "start", None)),
+                end=_date(getattr(args, "end", None)),
+            )
+
+
+def _ingest(args: argparse.Namespace) -> int:
+    result = asyncio.run(_async_ingest(args))
+    _print(result)
+    # An incomplete backfill is not a confirmed successful run.
+    return 3 if result["status"] == "INCOMPLETE" else 0
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="news24")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -138,6 +199,33 @@ def build_parser() -> argparse.ArgumentParser:
     fixtures = subparsers.add_parser("test-fixtures", help="validate a Sina response fixture")
     fixtures.add_argument("path")
     fixtures.set_defaults(func=_test_fixtures)
+
+    default_db = str(Path(os.getenv("NEWS24_DATA_DIR", "./data")) / "news24.sqlite3")
+    db = subparsers.add_parser("db", help="SQLite schema and inspection")
+    actions = db.add_subparsers(dest="db_action", required=True)
+    for action in ("migrate", "stats", "recent", "search", "revisions", "recover"):
+        command = actions.add_parser(action)
+        command.add_argument("--db", default=default_db)
+        if action in ("recent", "search"):
+            command.add_argument("--limit", type=int, default=20)
+        if action == "search":
+            command.add_argument("query")
+        if action == "revisions":
+            command.add_argument("uid")
+        command.set_defaults(func=_database)
+
+    for action in ("ingest", "backfill"):
+        command = subparsers.add_parser(action)
+        command.add_argument("--source", choices=["sina"], default="sina")
+        command.add_argument("--category", default="all")
+        command.add_argument("--db", default=default_db)
+        command.add_argument("--max-pages", type=int, default=10)
+        command.add_argument("--page-size", type=int, default=50)
+        command.add_argument("--delay", type=float, default=0.5)
+        if action == "backfill":
+            command.add_argument("--start", required=True)
+            command.add_argument("--end")
+        command.set_defaults(func=_ingest)
     return parser
 
 
@@ -148,7 +236,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--limit must be positive")
     try:
         return int(args.func(args))
-    except (OSError, ValueError, RuntimeError, News24Error) as exc:
+    except (OSError, ValueError, RuntimeError, sqlite3.Error, News24Error) as exc:
         print(f"news24: {exc}", file=sys.stderr)
         return 1
 

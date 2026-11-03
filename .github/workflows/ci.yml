@@ -1,4 +1,4 @@
-name: V0.2 Foundation CI
+name: News24 Ingestion CI
 
 on:
   push:
@@ -9,6 +9,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
@@ -21,15 +22,17 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q src/news24
       - name: Ruff
-        run: python -m ruff check src/news24 tests/unit/test_news24.py tests/contract/test_sina_feed.py
+        run: python -m ruff check src/news24 tests/unit tests/contract tests/integration
       - name: Mypy
         run: python -m mypy src/news24
-      - name: Offline unit, contract, and legacy tests
-        run: python -m pytest -q tests/unit tests/contract tests/test_system.py
+      - name: Offline unit, contract, integration and legacy tests
+        run: python -m pytest -q tests/unit tests/contract tests/integration tests/test_system.py
       - name: Offline CLI smoke
         run: |
           python -m news24 doctor --json
           python -m news24 test-fixtures tests/fixtures/sina/feed_success.json
+          python -m news24 db migrate --db /tmp/news24-ci.sqlite3
+          python -m news24 db stats --db /tmp/news24-ci.sqlite3
 
   docker:
     runs-on: ubuntu-latest
@@ -39,5 +42,8 @@ jobs:
         run: docker build -t news24:ci .
       - name: Container smoke
         run: |
+          docker volume create news24-ci
           docker run --rm news24:ci doctor --json
           docker run --rm news24:ci test-fixtures /app/tests/fixtures/sina/feed_success.json
+          docker run --rm -v news24-ci:/data news24:ci db migrate
+          docker run --rm -v news24-ci:/data news24:ci db stats

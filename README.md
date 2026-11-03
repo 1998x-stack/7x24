@@ -1,68 +1,71 @@
-# News24 / 新浪财经 7×24
+# News24 — 新浪财经 7×24 新闻采集与研究平台
 
 [![CI](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml/badge.svg)](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml)
 
-A financial news collection research project. **V0.2 is an engineering-foundation release, not a production-grade news intelligence service.**
+News24 V0.3 introduces a replayable, transactional SQLite ingestion backend for Sina 7×24. **It is an experimental research system, not a validated financial market data service.**
 
-## Current capabilities (V0.2)
+## Implemented in V0.3
 
-- Installable Python 3.11+ package with a stable `news24` command.
-- Offline environment diagnostics and contract-fixture validation.
-- Minimal one-page Sina feed HTTP client, with explicit source errors.
-- A canonical, timezone-aware article contract, preserving source payloads.
-- Canonical JSONL export and local inspection.
-- Automated unit, contract, smoke, and legacy regression tests.
-- A small, non-root Docker image (no Chromium required).
+- Durable SQLite / WAL database, migration v1, per-source/per-category checkpoints.
+- Async HTTPX page retrieval, bounded retries and delays, JSON/JSONP validation.
+- Raw page snapshots, canonical articles, multi-category associations, article revisions.
+- Idempotent article UPSERT by `(source, source_id)`; no overwriting history on updates.
+- Checkpoint is advanced in the *same transaction* as news writes **only when coverage is complete**.
+- SQLite FTS5 trigram search with short-query LIKE fallback.
+- Incremental ingestion, date-window backfill, local recovery of interrupted runs, diagnostics.
+- Offline unit/contract/integration tests and deliberately injected failures.
 
-**Not implemented yet:** persistent ingestion checkpoints, historical backfill, SQLite storage, scheduling, AI job queue, live dashboard, guaranteed source availability. These are staged for V0.3 onward.
+### Quick start
 
-## Quick start
+Requires Python 3.11+ with SQLite FTS5 trigram support.
 
 ```bash
-python3.11 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
+
 news24 doctor --json
 news24 test-fixtures tests/fixtures/sina/feed_success.json
-news24 collect --source sina --category A股 --limit 20 --output data/latest.jsonl
-news24 inspect data/latest.jsonl --limit 5
+
+news24 db migrate --db data/news24.sqlite3
+news24 ingest --source sina --category all --max-pages 50 --db data/news24.sqlite3
+news24 db stats --db data/news24.sqlite3
+news24 db recent --limit 10 --db data/news24.sqlite3
+news24 db search "经济数据" --db data/news24.sqlite3
+news24 db revisions sina_7x24:4700001 --db data/news24.sqlite3
 ```
 
-Live collection depends on a third-party interface. Failure returns a nonzero exit code; an HTTP failure is **never** reported as an empty success. A 0-item valid response does not prove that data is available. The unversioned upstream API and pagination semantics need continuous verification.
-
-To replace an existing export, explicitly pass `--force`. Exports are single-page snapshots, **not** a persistent store.
-
-## Tests
+**Backfill with explicit time-zone offsets:**
 
 ```bash
-make lint
-make typecheck
-make test
-make smoke
+news24 backfill --start 2026-03-01T00:00:00+08:00 \
+  --end 2026-03-03T00:00:00+08:00 \
+  --max-pages 100 --db data/news24.sqlite3
 ```
 
-The pre-refactor entrypoint `python -m src.main` and original scripts remain in place for comparison. They are **legacy** and do not inherit V0.2 reliability guarantees.
+A max-page cutoff without an observed end/boundary prints `INCOMPLETE` and exits with code **3**: saved records are inspectable, but the checkpoint is not advanced. Re-run with a larger page limit. Backfill does not change the real-time cursor, even on success.
 
-## Docker
+The upstream API is **unofficial/unversioned**. The page-walker assumes descending numeric source IDs and a stable page listing during traversal, checking for misordered or overlapping pages. Live behavior is not guaranteed; mutations of older stories that fall outside the overlap window may require replay/backfill. Large feed histories can exceed memory limits: bounded, streaming backfills are a future improvement. Respect rate limits, terms and content rights.
+
+### Tests
 
 ```bash
-docker build -t news24:0.2 .
-docker run --rm -v "$PWD/data:/data" news24:0.2 doctor --json
-docker compose run --rm news24 test-fixtures /app/tests/fixtures/sina/feed_success.json
+make lint typecheck test smoke
 ```
 
-The Compose profile runs a one-shot command; there is no scheduler daemon in V0.2. The image does not expose an API port.
+A legacy standalone `sina7x24_playwright.py` and `python -m src.main` remain unchanged for comparison; new persistence guarantees do **not** extend to those entrypoints.
 
-## Architecture
+### Docker
 
-- `src/news24/core/`: validated canonical domain data.
-- `src/news24/sources/sina/`: feed parsing and single-page fetch.
-- `src/news24/cli.py`: supported command-line entrypoint.
-- `tests/fixtures/`: synthetic offline examples, not an API live-availability guarantee.
-- `src/{collectors,processors,analyzers,storage,reporters}/`: prior experimental implementation, preserved for migration.
+```bash
+docker build -t news24:0.3 .
+docker run --rm news24:0.3 doctor --json
+docker volume create news24-data
+docker run --rm -v news24-data:/data news24:0.3 db migrate
+docker run --rm -v news24-data:/data news24:0.3 ingest --max-pages 50
+docker run --rm -v news24-data:/data news24:0.3 db stats
+```
 
-See [V0.2 runbook](docs/runbooks/v0.2.md), [architecture decision](docs/adr/0001-foundation.md), and [roadmap](docs/architecture/roadmap.md).
+No scheduler, model analysis, realtime API or Web UI in V0.3. For roadmap and operational limits see [V0.3 runbook](docs/runbooks/v0.3.md) and [ADR 0002](docs/adr/0002-transactional-ingestion.md).
 
-## Security and provenance
-
-Keep secrets in environment variables, never in version control. Raw news and AI outputs are different data categories; V0.2 preserves the upstream record for future replay. Avoid rendering upstream HTML as trusted markup. Honor source terms, applicable rights and rate limits. No claim of regulatory compliance or investment accuracy is made.
+Data is not investment advice. Source content and model predictions must not be treated as verified price signals.
