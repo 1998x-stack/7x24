@@ -1,71 +1,66 @@
-# News24 — 新浪财经 7×24 新闻采集与研究平台
+# News24 — 新浪财经 7×24 新闻研究系统
 
 [![CI](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml/badge.svg)](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml)
 
-News24 V0.3 introduces a replayable, transactional SQLite ingestion backend for Sina 7×24. **It is an experimental research system, not a validated financial market data service.**
+V0.4 adds **a durable single-runner job engine**, persistent schedules, source contract probes and timezone-correct database-driven reports on top of V0.3 SQLite ingestion. This is an experimental research application, **not a market-data SLA or investment advice system**.
 
-## Implemented in V0.3
+## API verification (2026-11-03)
 
-- Durable SQLite / WAL database, migration v1, per-source/per-category checkpoints.
-- Async HTTPX page retrieval, bounded retries and delays, JSON/JSONP validation.
-- Raw page snapshots, canonical articles, multi-category associations, article revisions.
-- Idempotent article UPSERT by `(source, source_id)`; no overwriting history on updates.
-- Checkpoint is advanced in the *same transaction* as news writes **only when coverage is complete**.
-- SQLite FTS5 trigram search with short-query LIKE fallback.
-- Incremental ingestion, date-window backfill, local recovery of interrupted runs, diagnostics.
-- Offline unit/contract/integration tests and deliberately injected failures.
+The Sina 7×24 public page still displays dated live news. The unofficial `https://zhibo.sina.com.cn/api/zhibo/feed` remains referenced in maintained third-party code, but a direct live JSON response could not be independently verified in the current environment. **Do not interpret a successful offline fixture or a live webpage as proof that API pagination works.** The documented Sina iNews `live7x24_list` is a different, authenticated interface and needs authorized `app_key` and signing.
 
-### Quick start
+V0.4 exposes `news24 source-probe`, which records whether a direct response has valid expected shape, nonempty items and sufficiently recent timestamps. A probe is one page only, not proof of complete history. `zhibo_id` and `type` are transport adapter configuration, not verified API version numbers.
 
-Requires Python 3.11+ with SQLite FTS5 trigram support.
+## Install
 
 ```bash
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
-
 news24 doctor --json
-news24 test-fixtures tests/fixtures/sina/feed_success.json
-
 news24 db migrate --db data/news24.sqlite3
-news24 ingest --source sina --category all --max-pages 50 --db data/news24.sqlite3
-news24 db stats --db data/news24.sqlite3
-news24 db recent --limit 10 --db data/news24.sqlite3
-news24 db search "经济数据" --db data/news24.sqlite3
-news24 db revisions sina_7x24:4700001 --db data/news24.sqlite3
 ```
 
-**Backfill with explicit time-zone offsets:**
+Migration upgrades existing V0.3 `user_version=1` databases to `2` without recreating news. Back up your database first, using SQLite backup APIs and not just copying a live WAL file.
+
+## Durable job runtime
 
 ```bash
-news24 backfill --start 2026-03-01T00:00:00+08:00 \
-  --end 2026-03-03T00:00:00+08:00 \
-  --max-pages 100 --db data/news24.sqlite3
+# Configure one source poll every 5 minutes, one probe every 6 hours,
+# and an 08:00 Asia/Shanghai report for the previous calendar day
+news24 jobs install --collect-every 300 --probe-every 21600 \
+  --report-at 08:00 --timezone Asia/Shanghai
+
+# Process a single due task (suitable for test/cron)
+news24 jobs run
+
+# Run a persistent foreground worker (Ctrl+C stops it)
+news24 jobs run --loop --poll-seconds 5
+
+# See queue, leases, failures, source health and report output
+news24 jobs status
+news24 jobs list
+news24 health
+news24 source-probe
+news24 report daily --date 2026-11-02
+news24 report show --date 2026-11-02
 ```
 
-A max-page cutoff without an observed end/boundary prints `INCOMPLETE` and exits with code **3**: saved records are inspectable, but the checkpoint is not advanced. Re-run with a larger page limit. Backfill does not change the real-time cursor, even on success.
+Install creates stable schedule IDs and is idempotent: rerunning it does **not** change existing schedule configuration. Missed poll intervals are coalesced (at most one outstanding due job per schedule per tick), not indiscriminately replayed.
 
-The upstream API is **unofficial/unversioned**. The page-walker assumes descending numeric source IDs and a stable page listing during traversal, checking for misordered or overlapping pages. Live behavior is not guaranteed; mutations of older stories that fall outside the overlap window may require replay/backfill. Large feed histories can exceed memory limits: bounded, streaming backfills are a future improvement. Respect rate limits, terms and content rights.
+Tasks are **at-least-once**; article upserts and report keys must remain idempotent. A crash after a side effect but before completion acknowledgement can produce a retry. Leases, bounded attempts and atomic claims prevent most accidental overlap. Run a single active worker and do not recover unexpired work. No distributed scheduling or external broker is provided.
 
-### Tests
+**An `analyze` job kind is reserved but does not contain an AI executor in V0.4.** Explicit analyze tasks fail rather than being counted as successful. AI model-based analysis belongs in V0.5.
+
+## Reporting and validation
+
+Daily reports query **the complete stored time window**, using a Shanghai-local calendar day and UTC-normalized comparisons; only displayed news samples are capped. Report totals are not calculated from the latest fetch page. Reports have stable keys, revision history and deterministic regeneration.
+
+Every report is explicitly marked **UNVERIFIED** for upstream source coverage. Neither the latest visible news nor a successful ingestion run proves a full-day backfill. A source failure remains visible as a failed job/probe instead of a fabricated neutral summary.
 
 ```bash
 make lint typecheck test smoke
+docker build -t news24:0.4 .
+docker run --rm news24:0.4 doctor --json
 ```
 
-A legacy standalone `sina7x24_playwright.py` and `python -m src.main` remain unchanged for comparison; new persistence guarantees do **not** extend to those entrypoints.
-
-### Docker
-
-```bash
-docker build -t news24:0.3 .
-docker run --rm news24:0.3 doctor --json
-docker volume create news24-data
-docker run --rm -v news24-data:/data news24:0.3 db migrate
-docker run --rm -v news24-data:/data news24:0.3 ingest --max-pages 50
-docker run --rm -v news24-data:/data news24:0.3 db stats
-```
-
-No scheduler, model analysis, realtime API or Web UI in V0.3. For roadmap and operational limits see [V0.3 runbook](docs/runbooks/v0.3.md) and [ADR 0002](docs/adr/0002-transactional-ingestion.md).
-
-Data is not investment advice. Source content and model predictions must not be treated as verified price signals.
+For details see [V0.4 operations](docs/runbooks/v0.4.md), [ADR-0003](docs/adr/0003-durable-jobs.md), and the [roadmap](docs/architecture/roadmap.md). Legacy collector entrypoints are still present for comparison but not covered by V0.4 operational guarantees.

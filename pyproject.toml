@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news24"
-version = "0.3.0"
-description = "Sina 7x24 news collector — durable ingestion and replay-safe storage"
+version = "0.4.0"
+description = "Sina 7x24 news collector — durable jobs and provenance-aware reporting"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
