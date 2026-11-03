@@ -6,7 +6,7 @@
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 import asyncio
 """
@@ -22,7 +22,7 @@ import sys
 import os
 
 # Add the src directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '.'))
+# No extra sys.path injection: this test imports the isolated legacy.src package.
 
 from legacy.src.interfaces import NewsItem
 from legacy.legacy.src.collectors.sina_collector import SinaNewsCollector
