@@ -202,7 +202,7 @@ async def test_backfill_does_not_move_realtime_checkpoint(tmp_path: Path) -> Non
         result = await ingest(
             store, [[15, 14], [12, 11], [10, 9]], start=start, end=end
         )
-        assert result["status"] == "SUCCEEDED"
+        assert result["status"] == "NO_CHANGES"
         assert result["checkpoint"] == 12
         assert store.checkpoint("sina_7x24", "all") == 12
         assert store.statistics()["news"] == 2  # both 11 and 12 already existed
