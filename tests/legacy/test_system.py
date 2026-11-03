@@ -25,7 +25,7 @@ import os
 # No extra sys.path injection: this test imports the isolated legacy.src package.
 
 from legacy.src.interfaces import NewsItem
-from legacy.legacy.src.collectors.sina_collector import SinaNewsCollector
+from legacy.src.collectors.sina_collector import SinaNewsCollector
 from legacy.src.processors.text_processor import TextProcessor, EntityExtractor
 from legacy.src.analyzers.sentiment_analyzer import SentimentAnalyzer
 from legacy.src.storage.json_storage import JSONStorage
