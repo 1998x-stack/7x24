@@ -45,7 +45,7 @@ async def fetch_pages(
             ids.append(item_id)
         if len(set(ids)) != len(ids):
             raise SourceSchemaError("duplicate ids within a single feed page")
-        if any(a <= b for a, b in zip(ids, ids[1:])):
+        if any(a <= b for a, b in zip(ids, ids[1:], strict=False)):
             raise SourceSchemaError("Sina page is not strictly descending by id")
         if ids and last_id is not None and ids[0] >= last_id:
             raise SourceSchemaError("overlapping/out-of-order pages; checkpoint unsafe")
@@ -53,7 +53,7 @@ async def fetch_pages(
             last_id = ids[-1]
             max_seen = max(ids[0], max_seen or 0)
 
-        for article, item_id in zip(page.articles, ids):
+        for article, item_id in zip(page.articles, ids, strict=True):
             if item_id in seen_ids:
                 raise SourceSchemaError("repeated id across pages; checkpoint unsafe")
             seen_ids.add(item_id)

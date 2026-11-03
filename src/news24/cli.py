@@ -19,9 +19,9 @@ from news24.core.errors import News24Error
 from news24.core.models import NewsArticle
 from news24.ingestion.service import run_ingestion
 from news24.sources.sina.async_client import SinaFeedClient
-from news24.storage.database import SQLiteNewsStore
 from news24.sources.sina.client import fetch_latest
 from news24.sources.sina.parser import parse_feed, parse_payload
+from news24.storage.database import SQLiteNewsStore
 
 
 def _print(value: object) -> None:
