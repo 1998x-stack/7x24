@@ -1,0 +1,34 @@
+{
+  "result": {
+    "status": {"code": 0, "msg": "ok"},
+    "data": {
+      "feed": {
+        "list": [
+          {
+            "id": 4700001,
+            "rich_text": "<p>测试：A股市场<span>成交</span>变化。</p>",
+            "title": "测试快讯标题",
+            "create_time": "2026-03-03 09:30:00",
+            "update_time": "2026-03-03 09:32:00",
+            "is_delete": 0,
+            "is_repeat": "0",
+            "tag": [{"name": "A股"}, {"name": "市场"}],
+            "ext": "{\"stocks\":[{\"market\":\"sh\",\"symbol\":\"600000\",\"key\":\"浦发银行\"}],\"docurl\":\"https://example.invalid/fixture\"}",
+            "multimedia": {"img_url": ["https://example.invalid/image.png"]}
+          },
+          {
+            "id": 4700000,
+            "rich_text": "<p>指标发布时间缺失，仅用于契约测试</p>",
+            "create_time": "invalid-date",
+            "tag": [],
+            "ext": "{}",
+            "is_delete": 0
+          }
+        ],
+        "max_id": 4700001,
+        "min_id": 4700000,
+        "page_info": {"page": 1, "totalPage": 1}
+      }
+    }
+  }
+}

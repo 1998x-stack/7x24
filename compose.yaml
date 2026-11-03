@@ -1,0 +1,17 @@
+services:
+  news24:
+    build:
+      context: .
+    image: news24:0.2
+    init: true
+    restart: "no"
+    environment:
+      NEWS24_DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    command: ["doctor", "--json"]
