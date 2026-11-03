@@ -46,7 +46,7 @@ def seed(store: SQLiteNewsStore, records: list[NewsArticle], key: str = "seed") 
     ))
 
 
-def test_upgrade_v1_to_v2_without_data_loss(tmp_path: Path) -> None:
+def test_upgrade_v1_to_v3_without_data_loss(tmp_path: Path) -> None:
     path = tmp_path / "old.sqlite3"
     schema = (
         resources.files("news24.storage.migrations")
@@ -56,8 +56,8 @@ def test_upgrade_v1_to_v2_without_data_loss(tmp_path: Path) -> None:
     with sqlite3.connect(path) as conn:
         conn.executescript(schema + "\nPRAGMA user_version=1;")
     with SQLiteNewsStore(path) as store:
-        assert store.migrate() == 2
-        assert store.migrate() == 2
+        assert store.migrate() == 3
+        assert store.migrate() == 3
         assert store.statistics()["news"] == 0
         assert store.conn.execute(
             "SELECT name FROM sqlite_master WHERE name='job_queue'"

@@ -15,7 +15,7 @@ from typing import Any
 from news24.core.models import NewsArticle
 from news24.ingestion.models import FetchBatch
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def _utc_now() -> str:
@@ -67,7 +67,7 @@ class SQLiteNewsStore:
             raise RuntimeError(
                 f"database version {version} newer than code {SCHEMA_VERSION}"
             )
-        names = {1: "0001_initial.sql", 2: "0002_jobs.sql"}
+        names = {1: "0001_initial.sql", 2: "0002_jobs.sql", 3: "0003_intelligence.sql"}
         for next_version in range(version + 1, SCHEMA_VERSION + 1):
             script = (
                 resources.files("news24.storage.migrations")

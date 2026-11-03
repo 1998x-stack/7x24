@@ -75,7 +75,7 @@ def runtime_health(store: SQLiteNewsStore) -> dict[str, Any]:
            ORDER BY started_at DESC, rowid DESC LIMIT 1"""
     ).fetchone()
     return {
-        "database": "OK", "schema_version": 2,
+        "database": "OK", "schema_version": 3,
         "job_counts": JobStore(store).counts(),
         "last_source_probe": dict(row) if row is not None else None,
         "last_ingestion": dict(last_ingest) if last_ingest is not None else None,
