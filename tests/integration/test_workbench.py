@@ -5,11 +5,11 @@ import hashlib
 import json
 import sqlite3
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from typing import Iterator
 
 import httpx
 import pytest
