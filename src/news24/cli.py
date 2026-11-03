@@ -7,9 +7,9 @@ import sqlite3
 import sys
 import tempfile
 from collections import deque
-from datetime import datetime, timezone
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Sequence
 
 from news24 import __version__
 from news24.core.errors import News24Error
@@ -106,7 +106,7 @@ def _test_fixtures(args: argparse.Namespace) -> int:
     path = Path(args.path)
     articles = parse_feed(
         parse_payload(path.read_text(encoding="utf-8")),
-        datetime(2026, 3, 3, tzinfo=timezone.utc),
+        datetime(2026, 3, 3, tzinfo=UTC),
     )
     if not articles:
         raise ValueError("fixture contains no news; expected a populated golden fixture")

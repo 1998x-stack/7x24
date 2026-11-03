@@ -1,7 +1,7 @@
 """HTTP and feed-contract verification without depending on live Sina services."""
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -48,7 +48,7 @@ def test_jsonp_and_json_are_equivalent() -> None:
 
 
 def test_invalid_status_or_shape_rejected() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with pytest.raises(SourceSchemaError):
         parse_feed({"result": {"status": {"code": 1}}}, now)
     with pytest.raises(SourceSchemaError):

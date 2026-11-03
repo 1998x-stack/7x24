@@ -1,7 +1,7 @@
 """Pure offline tests of canonical modeling and safe export."""
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -17,7 +17,7 @@ FIXTURE = Path(__file__).parents[1] / "fixtures" / "sina" / "feed_success.json"
 def _articles() -> list[NewsArticle]:
     return parse_feed(
         parse_payload(FIXTURE.read_text(encoding="utf-8")),
-        datetime(2026, 3, 3, 2, tzinfo=timezone.utc),
+        datetime(2026, 3, 3, 2, tzinfo=UTC),
     )
 
 

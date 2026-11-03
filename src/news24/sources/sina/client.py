@@ -1,6 +1,6 @@
 """Small synchronous CLI HTTP adapter; async pagination is scheduled for V0.3."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -40,6 +40,6 @@ def fetch_latest(
             response = client.get(url, params=params)
             response.raise_for_status()
             payload = parse_payload(response.text)
-            return parse_feed(payload, datetime.now(timezone.utc))
+            return parse_feed(payload, datetime.now(UTC))
     except httpx.HTTPError as exc:
         raise SourceUnavailable("Sina request failed") from exc
