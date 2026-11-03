@@ -58,10 +58,7 @@ class OpenAIResponsesProvider:
             raise ValueError("input exceeds the configured max content length (12000)")
         from openai import AsyncOpenAI
 
-        options: dict[str, str] = {"api_key": self.api_key}
-        if self.base_url:
-            options["base_url"] = self.base_url
-        async with AsyncOpenAI(**options) as client:
+        async with AsyncOpenAI(api_key=self.api_key, base_url=self.base_url) as client:
             response = await client.responses.create(
                 model=spec.model,
                 store=False,
