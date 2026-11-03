@@ -5,7 +5,6 @@ modules and forbids new cycles or reverse dependencies between top-level layers.
 """
 
 import ast
-import importlib
 import tomllib
 from importlib import resources
 from pathlib import Path
@@ -89,10 +88,10 @@ def test_no_direct_import_cycle_between_canonical_modules() -> None:
 def test_deprecated_imports_are_identity_preserving() -> None:
     from news24.cli import main as old_main
     from news24.core.models import NewsArticle as OldArticle
-    from news24.infrastructure.sqlite.database import SQLiteNewsStore as CurrentStore
-    from news24.storage.database import SQLiteNewsStore as OldStore
     from news24.domain.news import NewsArticle as CurrentArticle
+    from news24.infrastructure.sqlite.database import SQLiteNewsStore as CurrentStore
     from news24.interfaces.cli import main as current_main
+    from news24.storage.database import SQLiteNewsStore as OldStore
 
     assert old_main is current_main
     assert OldArticle is CurrentArticle

@@ -12,8 +12,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from news24.domain.news import NewsArticle
 from news24.domain.ingestion import FetchBatch
+from news24.domain.news import NewsArticle
 
 SCHEMA_VERSION = 4
 

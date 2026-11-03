@@ -21,7 +21,6 @@ from news24.application.intelligence.service import (
     event_candidates,
     evidence_for,
 )
-from news24.infrastructure.sqlite.job_store import JobStore
 from news24.application.observability.health import runtime_health
 from news24.application.review.service import (
     claim_reviews,
@@ -31,6 +30,7 @@ from news24.application.review.service import (
     review_event,
 )
 from news24.infrastructure.sqlite.database import SQLiteNewsStore
+from news24.infrastructure.sqlite.job_store import JobStore
 
 MAX_REQUEST_BODY = 16384
 ASSETS = {

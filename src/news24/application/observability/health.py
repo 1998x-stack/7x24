@@ -3,9 +3,9 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from news24.infrastructure.sqlite.job_store import utc_time
 from news24.infrastructure.sina.async_client import SinaFeedClient
 from news24.infrastructure.sqlite.database import SQLiteNewsStore
+from news24.infrastructure.sqlite.job_store import utc_time
 
 
 async def probe_sina(

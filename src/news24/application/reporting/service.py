@@ -6,8 +6,8 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from news24.infrastructure.sqlite.job_store import utc_time
 from news24.infrastructure.sqlite.database import SQLiteNewsStore
+from news24.infrastructure.sqlite.job_store import utc_time
 
 
 def report_window(day: date, timezone: str) -> tuple[datetime, datetime]:
