@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "purpose": "Lexical source-grounding only; not semantic entailment",
+  "cases": [
+    {"text": "上海某企业发布年度报告。", "quote": "上海某企业发布年度报告", "verdict": "TEXT_MATCH_ONLY"},
+    {"text": "重要公告：人民币汇率保持稳定。", "quote": "经济增长超过百分之十", "verdict": "NOT_FOUND"},
+    {"text": "公司扩产，公司扩产。", "quote": "公司扩产", "verdict": "AMBIGUOUS"},
+    {"text": "A股市场。A股市场。", "quote": "A股市场", "verdict": "AMBIGUOUS"},
+    {"text": "公告含有特殊字符 % 和 $ 。", "quote": "% 和 $", "verdict": "TEXT_MATCH_ONLY"},
+    {"text": "政策实施时间为 2026 年 11 月。", "quote": "2026 年 11 月", "verdict": "TEXT_MATCH_ONLY"},
+    {"text": "银行宣布降息。", "quote": "银行宣布加息", "verdict": "NOT_FOUND"}
+  ]
+}

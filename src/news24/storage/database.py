@@ -15,7 +15,7 @@ from typing import Any
 from news24.core.models import NewsArticle
 from news24.ingestion.models import FetchBatch
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 4
 
 
 def _utc_now() -> str:
@@ -61,18 +61,24 @@ class SQLiteNewsStore:
         self.conn.close()
 
     def migrate(self) -> int:
+        """Upgrade old v1 databases incrementally and atomically."""
         version = int(self.conn.execute("PRAGMA user_version").fetchone()[0])
         if version > SCHEMA_VERSION:
-            raise RuntimeError(f"database version {version} newer than code {SCHEMA_VERSION}")
-        if version == 0:
+            raise RuntimeError(
+                f"database version {version} newer than code {SCHEMA_VERSION}"
+            )
+        names = {1: "0001_initial.sql", 2: "0002_jobs.sql", 3: "0003_intelligence.sql", 4: "0004_review.sql"}
+        for next_version in range(version + 1, SCHEMA_VERSION + 1):
             script = (
                 resources.files("news24.storage.migrations")
-                .joinpath("0001_initial.sql")
+                .joinpath(names[next_version])
                 .read_text(encoding="utf-8")
             )
             try:
                 self.conn.executescript(
-                    "BEGIN IMMEDIATE;\n" + script + "\nPRAGMA user_version=1;\nCOMMIT;"
+                    "BEGIN IMMEDIATE;\n"
+                    + script
+                    + f"\nPRAGMA user_version={next_version};\nCOMMIT;"
                 )
             except sqlite3.Error:
                 if self.conn.in_transaction:

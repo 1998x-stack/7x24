@@ -1,71 +1,103 @@
-# News24 — 新浪财经 7×24 新闻采集与研究平台
+# News24 — 7×24 新闻采集与证据研究工作台
 
 [![CI](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml/badge.svg)](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml)
 
-News24 V0.3 introduces a replayable, transactional SQLite ingestion backend for Sina 7×24. **It is an experimental research system, not a validated financial market data service.**
+**V1.0 consolidated core:** a local research workbench over durable Sina 7×24 news snapshots, model candidates, exact textual provenance and immutable reviewer decisions. It bundles the previously unmerged V0.4 and V0.5 functionality into a single PR to `main`.
 
-## Implemented in V0.3
+This is a **research prototype**, not a production-verified market-data feed, automated fact-checker or trading product.
 
-- Durable SQLite / WAL database, migration v1, per-source/per-category checkpoints.
-- Async HTTPX page retrieval, bounded retries and delays, JSON/JSONP validation.
-- Raw page snapshots, canonical articles, multi-category associations, article revisions.
-- Idempotent article UPSERT by `(source, source_id)`; no overwriting history on updates.
-- Checkpoint is advanced in the *same transaction* as news writes **only when coverage is complete**.
-- SQLite FTS5 trigram search with short-query LIKE fallback.
-- Incremental ingestion, date-window backfill, local recovery of interrupted runs, diagnostics.
-- Offline unit/contract/integration tests and deliberately injected failures.
+## What's implemented
 
-### Quick start
+| Layer | Capability |
+|---|---|
+| Data capture (V0.3) | SQLite WAL, raw source page snapshots, article revisions, source checkpoints |
+| Jobs (V0.4) | Durable queue, atomic claim, retry, lease recovery, schedules, source probes |
+| Intelligence (V0.5) | Opt-in OpenAI Responses adapter, strict analysis models, exact source evidence spans, conservative event candidates |
+| Local Workbench (V1.0) | Responsive browser UI, news search, article text with highlighted evidence, analysis history, candidate events, job status and evaluation records |
+| Review audit (V1.0) | Token-protected claim/event decisions, immutable append-only reviews, source revision fencing, version-based conflict rejection |
+| Quality gate (V1.0) | Source quotation golden corpus evaluation, deterministic metrics, readiness report, HTTP and Chromium E2E tests |
 
-Requires Python 3.11+ with SQLite FTS5 trigram support.
+## Local quick start
+
+Requires Python 3.11+ and SQLite FTS5 trigram support.
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
-
 news24 doctor --json
-news24 test-fixtures tests/fixtures/sina/feed_success.json
 
+# Back up an existing SQLite database safely before migration
 news24 db migrate --db data/news24.sqlite3
-news24 ingest --source sina --category all --max-pages 50 --db data/news24.sqlite3
-news24 db stats --db data/news24.sqlite3
-news24 db recent --limit 10 --db data/news24.sqlite3
-news24 db search "经济数据" --db data/news24.sqlite3
-news24 db revisions sina_7x24:4700001 --db data/news24.sqlite3
+news24 audit --db data/news24.sqlite3
 ```
 
-**Backfill with explicit time-zone offsets:**
+**Start the web interface (loopback ONLY):**
 
 ```bash
-news24 backfill --start 2026-03-01T00:00:00+08:00 \
-  --end 2026-03-03T00:00:00+08:00 \
-  --max-pages 100 --db data/news24.sqlite3
+# read-only interface when NEWS24_REVIEW_TOKEN is not set
+news24 web serve --db data/news24.sqlite3 --port 8765
+# open http://127.0.0.1:8765/
 ```
 
-A max-page cutoff without an observed end/boundary prints `INCOMPLETE` and exits with code **3**: saved records are inspectable, but the checkpoint is not advanced. Re-run with a larger page limit. Backfill does not change the real-time cursor, even on success.
-
-The upstream API is **unofficial/unversioned**. The page-walker assumes descending numeric source IDs and a stable page listing during traversal, checking for misordered or overlapping pages. Live behavior is not guaranteed; mutations of older stories that fall outside the overlap window may require replay/backfill. Large feed histories can exceed memory limits: bounded, streaming backfills are a future improvement. Respect rate limits, terms and content rights.
-
-### Tests
+To enable human reviews, set a long, random secret in the **terminal environment**, not in the repository or a public URL. The web interface accepts it only through the password field, keeps it in memory while that tab is open, and does not write it to browser storage:
 
 ```bash
-make lint typecheck test smoke
+export NEWS24_REVIEW_TOKEN='replace-with-a-long-random-operator-secret'
+export NEWS24_REVIEWER='local-operator'
+news24 web serve --db data/news24.sqlite3 --port 8765
 ```
 
-A legacy standalone `sina7x24_playwright.py` and `python -m src.main` remain unchanged for comparison; new persistence guarantees do **not** extend to those entrypoints.
+The server deliberately **rejects public binds** (e.g. `0.0.0.0`). It does not implement a public auth system or HTTPS. Only use on a trusted workstation; do not expose it through a public reverse proxy.
 
-### Docker
+## News collection, task runtime and AI
 
 ```bash
-docker build -t news24:0.3 .
-docker run --rm news24:0.3 doctor --json
-docker volume create news24-data
-docker run --rm -v news24-data:/data news24:0.3 db migrate
-docker run --rm -v news24-data:/data news24:0.3 ingest --max-pages 50
-docker run --rm -v news24-data:/data news24:0.3 db stats
+news24 source-probe
+news24 ingest --category all --max-pages 50
+news24 jobs install --collect-every 300 --probe-every 21600 \
+  --report-at 08:00 --timezone Asia/Shanghai
+news24 jobs run --loop --poll-seconds 5
+
+# AI is strictly opt-in and requires configured API access and a model ID
+news24 intelligence enqueue --uid sina_7x24:4700001 --model YOUR_MODEL_ID
+news24 jobs run
+news24 intelligence history --uid sina_7x24:4700001
+news24 intelligence events
 ```
 
-No scheduler, model analysis, realtime API or Web UI in V0.3. For roadmap and operational limits see [V0.3 runbook](docs/runbooks/v0.3.md) and [ADR 0002](docs/adr/0002-transactional-ingestion.md).
+V0.5 analysis classifies source wording and extracts **candidate** claims. The exact source quote checker can return TEXT_MATCH_ONLY, NOT_FOUND, or AMBIGUOUS. A quote match proves an occurrence in the stored text, **not** that the interpretation or real-world assertion is true. AI results never overwrite the original news or human reviews.
 
-Data is not investment advice. Source content and model predictions must not be treated as verified price signals.
+## Independent local evaluation
+
+```bash
+news24 evaluate evidence --dataset tests/fixtures/intelligence/evidence_gold.json
+news24 audit
+python -m pytest -q tests/unit tests/contract tests/integration tests/test_system.py
+```
+
+The quality gate is explicitly limited to **literal quote-match correctness**. A clean result does not establish source completeness, model accuracy, or independent-source corroboration. Runtime probe freshness is only the last known source status.
+
+For a real browser test, install Playwright, install its Chromium browser, then run:
+
+```bash
+python -m pip install -e '.[dev,browser]'
+python -m playwright install chromium
+python -m pytest -q tests/e2e
+```
+
+The Chromium test uses an offline local HTTP server and fake model responses, never the live Sina feed or paid AI API.
+
+## Database and backwards compatibility
+
+Schema migrations are additive through `user_version=4`. V1.0 retains the V0.3 article, raw snapshots and checkpoint tables, V0.4 jobs and reports, and V0.5 analysis/event history. It adds immutable human review logs and evaluation records. Older binaries deliberately refuse databases with newer schema. Backup first; rollback means restoring the previous consistent backup, not editing `PRAGMA user_version`.
+
+## Operational boundaries
+
+- Sina's unofficial endpoint is not independently verified for current pagination and access. `source-probe` is a one-page check, **not** proof of 24-hour coverage.
+- Model calls, billing and privacy require separate account-specific validation; no production budget enforcement or independent fact verification is claimed.
+- The Workbench is local only, without multi-tenant permissions or external accessibility audit.
+- Initial long-history backfill remains bounded in memory by page limits. Event clustering uses exact sufficiently long quotes, not independent semantic equivalence.
+- No trading signals or investment recommendations.
+
+Documentation: [V1.0 runbook](docs/runbooks/v1.0.md), [API contract](docs/architecture/workbench-api.md), [security/review ADR](docs/adr/0005-local-review-workbench.md), [roadmap](docs/architecture/roadmap.md).
