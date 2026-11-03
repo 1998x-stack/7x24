@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a reproducible problem in the supported News24 runtime.
+title: "[bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "For credential leakage or security issues, follow SECURITY.md instead."
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit SHA
+      placeholder: "1.1.0 or abc1234"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - domain
+        - application
+        - infrastructure
+        - interfaces / web
+        - packaging / CI
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce (synthetic data only)
+      description: Please remove credentials, personal data and real private documents.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true

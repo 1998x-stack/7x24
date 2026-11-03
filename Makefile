@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test browser smoke build
+.PHONY: install lint typecheck test browser smoke build wheelcheck
 
 PYTHON ?= python3
 
@@ -6,13 +6,13 @@ install:
 	$(PYTHON) -m pip install -e '.[dev]'
 
 lint:
-	$(PYTHON) -m ruff check src/news24 tests/unit tests/contract tests/integration
+	$(PYTHON) -m ruff check src/news24 tests/unit tests/contract tests/integration tests/architecture
 
 typecheck:
 	$(PYTHON) -m mypy src/news24
 
 test:
-	$(PYTHON) -m pytest -q tests/unit tests/contract tests/integration tests/test_system.py
+	$(PYTHON) -m pytest -q tests/unit tests/contract tests/integration tests/architecture tests/legacy/test_system.py
 
 browser:
 	$(PYTHON) -m pytest -q tests/e2e
@@ -28,3 +28,6 @@ smoke:
 
 build:
 	$(PYTHON) -m pip wheel --no-deps --wheel-dir dist .
+
+wheelcheck: build
+	$(PYTHON) scripts/verify_wheel.py dist

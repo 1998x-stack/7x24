@@ -1,4 +1,7 @@
-name: News24 Consolidated Core CI
+name: News24 CI - Modular Architecture
+
+permissions:
+  contents: read
 
 on:
   push:
@@ -22,13 +25,13 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q src/news24
       - name: JS static syntax check
-        run: node --check src/news24/web/app.js
+        run: node --check src/news24/interfaces/web/app.js
       - name: Ruff
-        run: python -m ruff check src/news24 tests/unit tests/contract tests/integration
+        run: python -m ruff check src/news24 tests/unit tests/contract tests/integration tests/architecture
       - name: Mypy
         run: python -m mypy src/news24
       - name: Unit, contract, integration and legacy tests
-        run: python -m pytest -q tests/unit tests/contract tests/integration tests/test_system.py
+        run: python -m pytest -q tests/unit tests/contract tests/integration tests/architecture tests/legacy/test_system.py
       - name: Offline CLI smoke
         run: |
           python -m news24 doctor --json
@@ -67,3 +70,15 @@ jobs:
           docker run --rm -v news24-ci:/data news24:ci db migrate
           docker run --rm -v news24-ci:/data news24:ci jobs status
           docker run --rm -v news24-ci:/data news24:ci audit
+
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build distributable wheel
+        run: python -m pip wheel --no-deps --wheel-dir dist .
+      - name: Validate SQL and Web packaging, no legacy files
+        run: python scripts/verify_wheel.py dist

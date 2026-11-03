@@ -77,7 +77,7 @@ def spec(model: str = "test-model") -> AnalysisSpec:
 
 def test_schema_v2_upgrade_preserves_job_queue(tmp_path: Path) -> None:
     db = tmp_path / "data.db"
-    migrations = resources.files("news24.storage.migrations")
+    migrations = resources.files("news24.infrastructure.sqlite.migrations")
     v1 = migrations.joinpath("0001_initial.sql").read_text(encoding="utf-8")
     v2 = migrations.joinpath("0002_jobs.sql").read_text(encoding="utf-8")
     with sqlite3.connect(db) as connection:
