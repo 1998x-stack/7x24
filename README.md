@@ -1,66 +1,64 @@
-# News24 — 新浪财经 7×24 新闻研究系统
+# News24 — 7×24 新闻采集、证据及候选事件研究系统
 
 [![CI](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml/badge.svg)](https://github.com/1998x-stack/7x24/actions/workflows/ci.yml)
 
-V0.4 adds **a durable single-runner job engine**, persistent schedules, source contract probes and timezone-correct database-driven reports on top of V0.3 SQLite ingestion. This is an experimental research application, **not a market-data SLA or investment advice system**.
+Version **0.5.0** introduces optional model-based news analysis over the V0.4 durable task runtime. It is an experimental data/research system, **not a verified source of financial market data, trading signals or factual validation**.
 
-## API verification (2026-11-03)
+## Architecture and scope
 
-The Sina 7×24 public page still displays dated live news. The unofficial `https://zhibo.sina.com.cn/api/zhibo/feed` remains referenced in maintained third-party code, but a direct live JSON response could not be independently verified in the current environment. **Do not interpret a successful offline fixture or a live webpage as proof that API pagination works.** The documented Sina iNews `live7x24_list` is a different, authenticated interface and needs authorized `app_key` and signing.
+- V0.2: packaged CLI + offline source contract fixtures.
+- V0.3: SQLite/WAL, versioned raw source snapshots, idempotent ingest and checkpoints.
+- V0.4: durable job queue, leases, retries, source probes and database-window reports.
+- **V0.5:** explicit model adapter, versioned structured outputs, exact source evidence spans, candidate event grouping and offline golden tests.
+- V0.6 future: interactive API and Web UI, human review and independent event verification.
 
-V0.4 exposes `news24 source-probe`, which records whether a direct response has valid expected shape, nonempty items and sufficiently recent timestamps. A probe is one page only, not proof of complete history. `zhibo_id` and `type` are transport adapter configuration, not verified API version numbers.
-
-## Install
+## Install and upgrade
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
 news24 doctor --json
-news24 db migrate --db data/news24.sqlite3
-```
-
-Migration upgrades existing V0.3 `user_version=1` databases to `2` without recreating news. Back up your database first, using SQLite backup APIs and not just copying a live WAL file.
-
-## Durable job runtime
-
-```bash
-# Configure one source poll every 5 minutes, one probe every 6 hours,
-# and an 08:00 Asia/Shanghai report for the previous calendar day
-news24 jobs install --collect-every 300 --probe-every 21600 \
-  --report-at 08:00 --timezone Asia/Shanghai
-
-# Process a single due task (suitable for test/cron)
-news24 jobs run
-
-# Run a persistent foreground worker (Ctrl+C stops it)
-news24 jobs run --loop --poll-seconds 5
-
-# See queue, leases, failures, source health and report output
-news24 jobs status
-news24 jobs list
-news24 health
-news24 source-probe
-news24 report daily --date 2026-11-02
-news24 report show --date 2026-11-02
-```
-
-Install creates stable schedule IDs and is idempotent: rerunning it does **not** change existing schedule configuration. Missed poll intervals are coalesced (at most one outstanding due job per schedule per tick), not indiscriminately replayed.
-
-Tasks are **at-least-once**; article upserts and report keys must remain idempotent. A crash after a side effect but before completion acknowledgement can produce a retry. Leases, bounded attempts and atomic claims prevent most accidental overlap. Run a single active worker and do not recover unexpired work. No distributed scheduling or external broker is provided.
-
-**An `analyze` job kind is reserved but does not contain an AI executor in V0.4.** Explicit analyze tasks fail rather than being counted as successful. AI model-based analysis belongs in V0.5.
-
-## Reporting and validation
-
-Daily reports query **the complete stored time window**, using a Shanghai-local calendar day and UTC-normalized comparisons; only displayed news samples are capped. Report totals are not calculated from the latest fetch page. Reports have stable keys, revision history and deterministic regeneration.
-
-Every report is explicitly marked **UNVERIFIED** for upstream source coverage. Neither the latest visible news nor a successful ingestion run proves a full-day backfill. A source failure remains visible as a failed job/probe instead of a fabricated neutral summary.
-
-```bash
+news24 db migrate  # upgrades schema v1/v2 to v3; make a consistent backup first
 make lint typecheck test smoke
-docker build -t news24:0.4 .
-docker run --rm news24:0.4 doctor --json
 ```
 
-For details see [V0.4 operations](docs/runbooks/v0.4.md), [ADR-0003](docs/adr/0003-durable-jobs.md), and the [roadmap](docs/architecture/roadmap.md). Legacy collector entrypoints are still present for comparison but not covered by V0.4 operational guarantees.
+V0.5 migration adds analysis/evidence/cluster tables; historical news, source checkpoints, jobs, and reports are retained. Older News24 binaries will intentionally reject the upgraded schema.
+
+## AI analysis is **opt-in**
+
+No model calls happen on ingest, search, report or source probe. The analyzer requires explicit queueing, explicit model configuration and an `OPENAI_API_KEY` for the OpenAI Responses provider. Model availability/price are provider-specific and must be checked in the target account.
+
+```bash
+export OPENAI_API_KEY=...
+# choose a Responses-compatible model made available to your API account
+news24 intelligence enqueue --uid sina_7x24:4700001 --model YOUR_MODEL_ID
+news24 jobs run
+news24 intelligence history --uid sina_7x24:4700001
+news24 intelligence events --day 2026-11-02
+```
+
+To inspect individual evidence spans, read an `analysis_key` from `history`:
+
+```bash
+news24 intelligence evidence --key YOUR_ANALYSIS_KEY
+```
+
+The worker can also read `NEWS24_ANALYSIS_MODEL` for directly enqueued generic analyze jobs. Unlike the legacy analyzer, a missing credential, malformed response or unsupported source quote **does not turn into a false neutral classification**.
+
+Only **verbatim unique substrings** of the stored normalized source text are labeled `TEXT_MATCH_ONLY`, with exact Python character offsets. Absent and ambiguous quotes remain `NOT_FOUND` or `AMBIGUOUS`. A perfect quote match does **not** demonstrate that the claimed interpretation is logically true. Model output and token usage are versioned with provider, model, prompt version/hash, source revision and input hash.
+
+Candidate events are grouped conservatively by *identical sufficiently specific quotations within the same Shanghai-local calendar day*. They are named **CANDIDATE** rather than verified events. They are filtered against the **current** source revision so an old quote does not survive an upstream correction. No fuzzy semantic clustering or cross-source verification is claimed.
+
+## Reliability and tests
+
+```bash
+make test
+python -m pytest -q tests/contract/test_evidence_gold.py
+news24 jobs status
+news24 health
+```
+
+Offline CI uses fake model providers; it never consumes API tokens or makes a real model call. Check the live provider contract separately in an authorized environment. A source article can contain prompt-injection text: it must be treated only as untrusted input, never instructions.
+
+See [ADR 0004](docs/adr/0004-model-evidence.md), [V0.5 runbook](docs/runbooks/v0.5.md) and [roadmap](docs/architecture/roadmap.md).

@@ -28,3 +28,11 @@ FastAPI search and SSE feed; React timeline, topic views and source-provenance d
 ## V1.0 Production gate
 
 Backup/restore, failure-injection, load test, security review, release and rollback procedure.
+
+## V0.5 Evidence-grounded intelligence (this PR)
+
+Opt-in Responses API provider, deterministic analysis identities, versioned structured output, text-exact evidence spans, revisable conservative event candidates and offline model-gated evaluation. Semantic verification, independent-source corroboration, automated model regression and reviewer approval remain open.
+
+## Next
+
+V0.6 should provide a read-only provenance-first Web UI, verification review workflow, conservative event merge/split controls, and streaming + source health. AI cannot be advertised as a factual oracle.

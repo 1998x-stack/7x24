@@ -1,6 +1,7 @@
 """Single-runner job worker with bounded execution and explicit failure states."""
 
 import asyncio
+import os
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime
 from typing import Any
@@ -9,6 +10,9 @@ from uuid import uuid4
 import httpx
 
 from news24.ingestion.service import run_ingestion
+from news24.intelligence.models import AnalysisSpec
+from news24.intelligence.provider import AnalysisProvider, OpenAIResponsesProvider
+from news24.intelligence.service import analyze_article
 from news24.jobs.scheduler import ScheduleStore
 from news24.jobs.store import JobStore
 from news24.observability.health import probe_sina
@@ -27,6 +31,7 @@ class JobWorker:
         store: SQLiteNewsStore,
         *,
         handlers: dict[str, JobHandler] | None = None,
+        analysis_provider: AnalysisProvider | None = None,
         clock: Callable[[], datetime] | None = None,
         owner: str | None = None,
     ) -> None:
@@ -35,6 +40,7 @@ class JobWorker:
         self.jobs = JobStore(store)
         self.schedules = ScheduleStore(self.jobs)
         self.handlers = handlers or {}
+        self.analysis_provider = analysis_provider
         self.clock = clock or (lambda: datetime.now(UTC))
         self.owner = owner or uuid4().hex
 
@@ -47,6 +53,21 @@ class JobWorker:
                 timezone=str(payload.get("timezone", "Asia/Shanghai")),
                 now=self.clock(),
             )
+
+        if kind == "analyze":
+            requested_model = str(payload.get("model") or os.getenv("NEWS24_ANALYSIS_MODEL") or "")
+            if not requested_model:
+                raise ValueError("model is required for analyze; no implicit legacy default")
+            spec = AnalysisSpec(
+                provider=str(payload.get("provider", "openai")), model=requested_model
+            )
+            provider = self.analysis_provider or OpenAIResponsesProvider()
+            outcome = await analyze_article(
+                self.store, str(payload["uid"]), spec, provider, now=self.clock()
+            )
+            if outcome["status"] == "REJECTED":
+                raise RuntimeError("model evidence rejected; see analysis evidence audit")
+            return outcome
 
         if kind in ("collect", "probe"):
             async with httpx.AsyncClient(
@@ -68,8 +89,7 @@ class JobWorker:
                     max_pages=int(payload.get("max_pages", 10)),
                     page_size=int(payload.get("page_size", 50)),
                 )
-        # Intentionally do not pretend model-based analysis exists in V0.4.
-        raise NotImplementedError("analyze executor requires a V0.5 plugin")
+        raise ValueError(f"unsupported job kind: {kind}")
 
     async def run_once(self, *, lease_seconds: int = 180) -> dict[str, Any]:
         now = self.clock()

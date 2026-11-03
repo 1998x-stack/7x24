@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import sqlite3
@@ -18,6 +19,7 @@ from news24 import __version__
 from news24.core.errors import News24Error
 from news24.core.models import NewsArticle
 from news24.ingestion.service import run_ingestion
+from news24.intelligence.service import analysis_history, evidence_for, event_candidates
 from news24.jobs.scheduler import ScheduleStore
 from news24.jobs.store import JobStore
 from news24.jobs.worker import JobWorker
@@ -270,6 +272,38 @@ def _jobs(args: argparse.Namespace) -> int:
     return 0
 
 
+def _intelligence(args: argparse.Namespace) -> int:
+    with SQLiteNewsStore(args.db) as store:
+        store.migrate()
+        if args.intelligence_action == "enqueue":
+            version = store.conn.execute(
+                "SELECT revision_hash FROM news WHERE uid=?", (args.uid,)
+            ).fetchone()
+            if version is None:
+                raise ValueError(f"unknown article: {args.uid}")
+            payload = {"uid": args.uid, "provider": "openai", "model": args.model}
+            digest = hashlib.sha256(
+                (args.uid + "|" + str(version["revision_hash"]) + "|"
+                 + args.model).encode("utf-8")
+            ).hexdigest()
+            key = "analyze:" + digest
+            inserted = JobStore(store).enqueue(
+                key, "analyze", payload, now=datetime.now(UTC)
+            )
+            _print({"ok": True, "enqueued": inserted, "job_key": key})
+        elif args.intelligence_action == "history":
+            _print({"ok": True, "analyses": analysis_history(store, args.uid)})
+        elif args.intelligence_action == "evidence":
+            _print({"ok": True, "evidence": evidence_for(store, args.key)})
+        else:
+            _print({
+                "ok": True,
+                "status": "CANDIDATE_ONLY",
+                "events": event_candidates(store, day=args.day, limit=args.limit),
+            })
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="news24")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -365,6 +399,25 @@ def build_parser() -> argparse.ArgumentParser:
         if action == "list":
             command.add_argument("--limit", type=int, default=20)
         command.set_defaults(func=_jobs)
+    intelligence = subparsers.add_parser(
+        "intelligence", help="versioned model results and grounded evidence"
+    )
+    intelligence_sub = intelligence.add_subparsers(
+        dest="intelligence_action", required=True
+    )
+    for action in ("enqueue", "history", "evidence", "events"):
+        command = intelligence_sub.add_parser(action)
+        command.add_argument("--db", default=runtime_db)
+        if action in ("enqueue", "history"):
+            command.add_argument("--uid", required=True)
+        if action == "enqueue":
+            command.add_argument("--model", required=True)
+        if action == "evidence":
+            command.add_argument("--key", required=True)
+        if action == "events":
+            command.add_argument("--day")
+            command.add_argument("--limit", type=int, default=50)
+        command.set_defaults(func=_intelligence)
     return parser
 
 
